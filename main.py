@@ -7,9 +7,9 @@ from datetime import datetime
 app = FastAPI()
 
 # Cargar los datasets
-movies_df = pd.read_csv('movies_dataset.csv')
-cast_df = pd.read_csv('cast.csv')
-crew_df = pd.read_csv('crew.csv')
+movies_df = pd.read_csv('data/movies_dataset.csv')
+cast_df = pd.read_csv('data/cast.csv')
+crew_df = pd.read_csv('data/crew.csv')
 
 # Manejo de valores NaN
 # Rellenar valores NaN en vote_average y popularity con la media
