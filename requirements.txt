@@ -1,5 +1,6 @@
 fastapi
 pandas
+<<<<<<< HEAD
 scikit-learn
 fuzzywuzzy
 python-Levenshtein
@@ -10,3 +11,7 @@ numpy
 python-dateutil
 scipy
 pyarrow
+=======
+requests
+scikit-learn
+>>>>>>> be4159c (Update requirements.txt)
