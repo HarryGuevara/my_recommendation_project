@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = FastAPI()
 
-# Cargar solo las primeras 20,000 filas y optimizar tipos de datos
+# Cargar solo las primeras 20,000 y 40,000 filas y optimizar tipos de datos
 movies_df = pd.read_csv('data/movies_dataset.csv', nrows=20000, usecols=['title', 'vote_average', 'popularity', 'release_year', 'revenue', 'budget', 'release_date'])
 movies_df['vote_average'] = movies_df['vote_average'].astype('float32')
 movies_df['popularity'] = movies_df['popularity'].astype('float32')
@@ -14,10 +14,10 @@ movies_df['release_year'] = movies_df['release_year'].astype('int32')
 movies_df['revenue'] = movies_df['revenue'].astype('float32')
 movies_df['budget'] = movies_df['budget'].astype('float32')
 
-cast_df = pd.read_csv('data/cast.csv', nrows=20000, usecols=['movie_id', 'name_actor'])
+cast_df = pd.read_csv('data/cast.csv', nrows=40000, usecols=['movie_id', 'name_actor'])
 cast_df['movie_id'] = cast_df['movie_id'].astype('int32')
 
-crew_df = pd.read_csv('data/crew.csv', nrows=20000, usecols=['movie_id', 'name_job', 'job_crew'])
+crew_df = pd.read_csv('data/crew.csv', nrows=40000, usecols=['movie_id', 'name_job', 'job_crew'])
 crew_df['movie_id'] = crew_df['movie_id'].astype('int32')
 
 # Manejo de valores NaN
