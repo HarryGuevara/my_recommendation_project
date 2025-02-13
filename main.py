@@ -68,6 +68,24 @@ cast_df['name_actor_normalized'] = cast_df['name_actor'].apply(normalizar_nombre
 crew_df['name_job_normalized'] = crew_df['name_job'].apply(normalizar_nombre)
 
 # Manejo de valores NaN
+# 5️⃣ Manejo de valores NaN
+
+# Cargar solo las primeras 20,000 filas y optimizar tipos de datos
+movies_df = pd.read_csv('data/movies_dataset.csv', nrows=20000, usecols=['title', 'vote_average', 'popularity', 'release_year', 'revenue', 'budget', 'release_date'])
+movies_df['vote_average'] = movies_df['vote_average'].astype('float32')
+movies_df['popularity'] = movies_df['popularity'].astype('float32')
+movies_df['release_year'] = movies_df['release_year'].astype('int32')
+movies_df['revenue'] = movies_df['revenue'].astype('float32')
+movies_df['budget'] = movies_df['budget'].astype('float32')
+
+cast_df = pd.read_csv('data/cast.csv', nrows=20000, usecols=['movie_id', 'name_actor'])
+cast_df['movie_id'] = cast_df['movie_id'].astype('int32')
+
+crew_df = pd.read_csv('data/crew.csv', nrows=20000, usecols=['movie_id', 'name_job', 'job_crew'])
+crew_df['movie_id'] = crew_df['movie_id'].astype('int32')
+
+# Manejo de valores NaN
+
 movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
@@ -99,13 +117,24 @@ def recomendacion(titulo: str):
     except IndexError:
         raise HTTPException(status_code=404, detail="Película no encontrada.")
     
+# Calcular la matriz de similitud del coseno bajo demanda
+def calcular_similitud():
+    return cosine_similarity(features_normalized, features_normalized)
+
+# Función de recomendación
+def recomendacion(titulo: str, movies_df=movies_df):
+    cosine_sim = calcular_similitud()  # Calcular similitud solo cuando sea necesario
+    idx = movies_df[movies_df['title'].str.lower() == titulo.lower()].index[0]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
     sim_scores = sim_scores[1:6]  # Obtener las 5 mejores recomendaciones
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
-    
+  
 # Endpoints
+# ✅ ENDPOINTS
+# Endpoints (sin cambios)
+
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
