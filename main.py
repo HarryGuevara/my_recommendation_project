@@ -5,13 +5,8 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
-import unicodedata
-from fuzzywuzzy import process
-import dask.dataframe as dd
-from scipy.sparse import csr_matrix
 
 app = FastAPI()
-
 
 # 1️⃣ Cargar con Dask y fragmentos (blocksize pequeño)
 movies_ddf = dd.read_csv(
@@ -125,9 +120,9 @@ def calcular_similitud():
     return cosine_similarity(features_normalized, features_normalized)
 
 # Función de recomendación
-def recomendacion(titulo: str, movies_df=movies_df):
-    cosine_sim = calcular_similitud()  # Calcular similitud solo cuando sea necesario
-    idx = movies_df[movies_df['title'].str.lower() == titulo.lower()].index[0]
+def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
+    titulo_normalizado = normalizar_nombre(titulo)
+    idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
     sim_scores = sim_scores[1:6]  # Obtener las 5 mejores recomendaciones
