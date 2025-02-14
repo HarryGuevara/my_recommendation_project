@@ -86,6 +86,9 @@ movies_df['budget'] = movies_df['budget'].astype('float32')
         'movie_id': 'int32'
     }
 )
+# Cargar solo las películas más populares (30,000 más populares)
+movies_df = pd.read_csv('data/movies_dataset.csv')
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(30000)
 
 # 2️⃣ Cargar Cast y Crew con Dask y convertir a Pandas
 cast_df = dd.read_csv('data/cast.csv').compute()
