@@ -3,46 +3,26 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
-import unicodedata
-from fuzzywuzzy import process
+from memory_profiler import profile
 
 app = FastAPI()
 
-# Cargar solo las películas más populares (20,000 más populares)
-movies_df = pd.read_csv('data/movies_dataset.csv')
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
+@profile
+def cargar_datos():
+    global movies_df, cast_df, crew_df
+    movies_df = pd.read_csv('data/movies_dataset.csv')
+    cast_df = pd.read_csv('data/cast.csv')
+    crew_df = pd.read_csv('data/crew.csv')
 
-# Cargar actores y directores más frecuentes
-cast_df = pd.read_csv('data/cast.csv')
-crew_df = pd.read_csv('data/crew.csv')
+cargar_datos()
 
-# Filtrar actores que aparecen en al menos 5 películas
-actor_counts = cast_df['name_actor'].value_counts()
-actores_frecuentes = actor_counts[actor_counts >= 5].index
-cast_df = cast_df[cast_df['name_actor'].isin(actores_frecuentes)]
-
-# Filtrar directores que dirigen al menos 3 películas
-director_counts = crew_df[crew_df['job_crew'] == 'Director']['name_job'].value_counts()
-directores_frecuentes = director_counts[director_counts >= 3].index
-crew_df = crew_df[(crew_df['name_job'].isin(directores_frecuentes)) & (crew_df['job_crew'] == 'Director')]
-
-# Cargar solo las columnas necesarias
-movies_df = movies_df[['title', 'vote_average', 'popularity', 'release_year', 'revenue', 'budget', 'release_date']]
-cast_df = cast_df[['movie_id', 'name_actor']]
-crew_df = crew_df[['movie_id', 'name_job', 'job_crew']]
-
-# Normalizar nombres
-def normalizar_nombre(nombre):
-    nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('ascii')
-    return nombre.lower()
-
-movies_df['title_normalized'] = movies_df['title'].apply(normalizar_nombre)
-cast_df['name_actor_normalized'] = cast_df['name_actor'].apply(normalizar_nombre)
-crew_df['name_job_normalized'] = crew_df['name_job'].apply(normalizar_nombre)
 
 # Manejo de valores NaN
+# Rellenar valores NaN en vote_average y popularity con la media
 movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
+
+# Rellenar valores NaN en release_year con la moda (año más común)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
 
 # Calcular 'return' y manejar divisiones por cero
@@ -59,21 +39,23 @@ features_normalized = scaler.fit_transform(features)
 cosine_sim = cosine_similarity(features_normalized, features_normalized)
 
 # Función de recomendación
+@profile
 def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
-    titulo_normalizado = normalizar_nombre(titulo)
-    idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
+    idx = movies_df[movies_df['title'].str.lower() == titulo.lower()].index[0]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
     sim_scores = sim_scores[1:6]
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
 
-# Endpoints (sin cambios)
+# Endpoint de bienvenida
+@profile
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
 
 # Endpoint 1: cantidad_filmaciones_mes
+@profile
 @app.get('/cantidad_filmaciones_mes/{mes}')
 def cantidad_filmaciones_mes(mes: str):
     meses = {
@@ -94,6 +76,7 @@ def cantidad_filmaciones_mes(mes: str):
     return {"mensaje": f"{cantidad} películas fueron estrenadas en el mes de {mes.capitalize()}"}
 
 # Endpoint 2: cantidad_filmaciones_dia
+@profile
 @app.get('/cantidad_filmaciones_dia/{dia}')
 def cantidad_filmaciones_dia(dia: str):
     dias = {
@@ -113,6 +96,7 @@ def cantidad_filmaciones_dia(dia: str):
     return {"mensaje": f"{cantidad} películas fueron estrenadas en los días {dia.capitalize()}"}
 
 # Endpoint 3: score_titulo
+@profile
 @app.get('/score_titulo/{titulo}')
 def score_titulo(titulo: str):
     pelicula = movies_df[movies_df['title'].str.lower() == titulo.lower()]
@@ -127,6 +111,7 @@ def score_titulo(titulo: str):
     return {"mensaje": f"La película {titulo_pelicula} fue estrenada en el año {año_estreno} con un score/popularidad de {score}"}
 
 # Endpoint 4: votos_titulo
+@profile
 @app.get('/votos_titulo/{titulo}')
 def votos_titulo(titulo: str):
     pelicula = movies_df[movies_df['title'].str.lower() == titulo.lower()]
@@ -145,6 +130,7 @@ def votos_titulo(titulo: str):
     return {"mensaje": f"La película {titulo_pelicula} fue estrenada en el año {año_estreno}. La misma cuenta con un total de {votos} valoraciones, con un promedio de {promedio}"}
 
 # Endpoint 5: get_actor
+@profile
 @app.get('/get_actor/{nombre_actor}')
 def get_actor(nombre_actor: str):
     # Filtrar películas del actor
@@ -171,6 +157,7 @@ def get_actor(nombre_actor: str):
 
 
 # Endpoint 6: get_director
+@profile
 @app.get('/get_director/{nombre_director}')
 def get_director(nombre_director: str):
     # Filtrar películas del director
@@ -197,6 +184,7 @@ def get_director(nombre_director: str):
         "peliculas": detalles_peliculas
     }
 # Endpoint de recomendación
+@profile
 @app.get('/recomendacion/{titulo}')
 def get_recomendacion(titulo: str):
     try:
