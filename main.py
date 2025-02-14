@@ -8,9 +8,9 @@ from fuzzywuzzy import process
 
 app = FastAPI()
 
-# Cargar solo las películas más populares (30,000 más populares)
+# Cargar solo las películas más populares (20,000 más populares)
 movies_df = pd.read_csv('data/movies_dataset.csv')
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(30000)
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
 
 # Cargar actores y directores más frecuentes
 cast_df = pd.read_csv('data/cast.csv')
