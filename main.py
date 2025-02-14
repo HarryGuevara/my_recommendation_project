@@ -5,13 +5,11 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
-import unicodedata
-from fuzzywuzzy import process
-import dask.dataframe as dd
-from scipy.sparse import csr_matrix
+from memory_profiler import profile
 
 app = FastAPI()
 
+<<<<<<< HEAD
 # 1️⃣ Cargar con Dask y fragmentos (blocksize pequeño)
 movies_ddf = dd.read_csv(
     'data/movies_dataset.csv',
@@ -87,23 +85,32 @@ movies_df['budget'] = movies_df['budget'].astype('float32')
     }
 )
 # Cargar solo las películas más populares (30,000 más populares)
+=======
+# Cargar solo las películas más populares (20,000 más populares)
+>>>>>>> 38f1013 (Update main.py)
 movies_df = pd.read_csv('data/movies_dataset.csv')
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(30000)
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
 
-# 2️⃣ Cargar Cast y Crew con Dask y convertir a Pandas
-cast_df = dd.read_csv('data/cast.csv').compute()
-crew_df = dd.read_csv('data/crew.csv').compute()
+# Cargar actores y directores más frecuentes
+cast_df = pd.read_csv('data/cast.csv')
+crew_df = pd.read_csv('data/crew.csv')
 
-# 3️⃣ Filtrar actores y directores frecuentes
+# Filtrar actores que aparecen en al menos 5 películas
 actor_counts = cast_df['name_actor'].value_counts()
 actores_frecuentes = actor_counts[actor_counts >= 5].index
 cast_df = cast_df[cast_df['name_actor'].isin(actores_frecuentes)]
 
+# Filtrar directores que dirigen al menos 3 películas
 director_counts = crew_df[crew_df['job_crew'] == 'Director']['name_job'].value_counts()
 directores_frecuentes = director_counts[director_counts >= 3].index
 crew_df = crew_df[(crew_df['name_job'].isin(directores_frecuentes)) & (crew_df['job_crew'] == 'Director')]
 
-# 4️⃣ Normalizar nombres
+# Cargar solo las columnas necesarias
+movies_df = movies_df[['title', 'vote_average', 'popularity', 'release_year', 'revenue', 'budget', 'release_date']]
+cast_df = cast_df[['movie_id', 'name_actor']]
+crew_df = crew_df[['movie_id', 'name_job', 'job_crew']]
+
+# Normalizar nombres
 def normalizar_nombre(nombre):
     nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('ascii')
     return nombre.lower()
@@ -112,9 +119,11 @@ movies_df['title_normalized'] = movies_df['title'].apply(normalizar_nombre)
 cast_df['name_actor_normalized'] = cast_df['name_actor'].apply(normalizar_nombre)
 crew_df['name_job_normalized'] = crew_df['name_job'].apply(normalizar_nombre)
 
-# 5️⃣ Manejo de valores NaN
+# Manejo de valores NaN
 movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
+
+# Rellenar valores NaN en release_year con la moda (año más común)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
 
 
@@ -137,6 +146,7 @@ features_normalized = scaler.fit_transform(features)
 cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 
 # Función de recomendación
+<<<<<<< HEAD
 def recomendacion(titulo: str):
     titulo_normalizado = normalizar_nombre(titulo)
     try:
@@ -151,20 +161,24 @@ def calcular_similitud():
 cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 # 1️⃣0️⃣ Función de recomendación
 def recomendacion(titulo: str):
+=======
+def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
+>>>>>>> 38f1013 (Update main.py)
     titulo_normalizado = normalizar_nombre(titulo)
-    try:
-        idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
-    except IndexError:
-        raise HTTPException(status_code=404, detail="Película no encontrada.")
-    
+    idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
     sim_scores = sim_scores[1:6]  # Obtener las 5 mejores recomendaciones
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
+<<<<<<< HEAD
   
 # Endpoints
 # ✅ ENDPOINTS
+=======
+
+# Endpoints (sin cambios)
+>>>>>>> 38f1013 (Update main.py)
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
@@ -258,6 +272,7 @@ def get_actor(nombre_actor: str):
     if peliculas_actor.empty:
         raise HTTPException(status_code=404, detail="No se encontraron películas para este actor.")
     
+<<<<<<< HEAD
     detalles_peliculas = peliculas_actor[['title', 'release_date']].to_dict('records')
     
     return {
@@ -265,6 +280,16 @@ def get_actor(nombre_actor: str):
         "peliculas": detalles_peliculas
     }
 
+=======
+    # Calcular métricas
+    cantidad_peliculas = peliculas_actor.shape[0]
+    retorno_total = peliculas_actor['return'].sum()
+    promedio_retorno = retorno_total / cantidad_peliculas if cantidad_peliculas > 0 else 0
+    
+    return {"mensaje": f"El actor {nombre_actor} ha participado de {cantidad_peliculas} filmaciones, el mismo ha conseguido un retorno de {retorno_total} con un promedio de {promedio_retorno} por filmación"}
+
+
+>>>>>>> 38f1013 (Update main.py)
 # Endpoint 6: get_director
 @app.get('/get_director/{nombre_director}')
 def get_director(nombre_director: str):
@@ -291,7 +316,10 @@ def get_director(nombre_director: str):
         "mensaje": f"El director {nombre_director} ha conseguido un retorno total de {retorno_total}",
         "peliculas": detalles_peliculas
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 38f1013 (Update main.py)
 # Endpoint de recomendación
 @app.get('/recomendacion/{titulo}')
 def get_recomendacion(titulo: str):
