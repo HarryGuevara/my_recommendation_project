@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 fastapi
 pandas
 scikit-learn
@@ -13,3 +14,11 @@ pyarrow
 requests
 scikit-learn
 
+=======
+fastapi==0.115.8
+pandas==2.2.3
+scikit-learn==1.6.1
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.25.1
+uvicorn==0.34.0
+>>>>>>> 0040dd2 (Update requirements.txt)
