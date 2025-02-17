@@ -213,6 +213,8 @@ def cantidad_filmaciones_dia(dia: str):
     cantidad = peliculas_dia[peliculas_dia['release_day'] == dias[dia]].shape[0]
     
     return {"mensaje": f"{cantidad} películas fueron estrenadas en los días {dia.capitalize()}"}
+    return {"mensaje": f"{cantidad} películas fueron estrenadas en {dia.capitalize()}"}
+    return {"mensaje": f"{cantidad} películas fueron estrenadas en los días {dia.capitalize()}"}
 
 # Endpoint 3: score_titulo
 @app.get('/score_titulo/{titulo}')
@@ -222,6 +224,9 @@ def score_titulo(titulo: str):
     if pelicula.empty:
         raise HTTPException(status_code=404, detail="Película no encontrada.")
     
+    return {
+        "mensaje": f"La película {pelicula['title'].values[0]} fue estrenada en {pelicula['release_year'].values[0]} con un score de {pelicula['vote_average'].values[0]}"
+    }
     titulo_pelicula = pelicula['title'].values[0]
     año_estreno = pelicula['release_year'].values[0]
     score = pelicula['vote_average'].values[0]
@@ -237,6 +242,12 @@ def votos_titulo(titulo: str):
         raise HTTPException(status_code=404, detail="Película no encontrada.")
     
     if 'vote_count' not in pelicula.columns or pelicula['vote_count'].values[0] < 2000:
+        return {"mensaje": f"La película {titulo} no cumple con la condición de tener al menos 2000 valoraciones."}
+    
+    return {
+        "mensaje": f"La película {pelicula['title'].values[0]} fue estrenada en {pelicula['release_year'].values[0]} con {pelicula['vote_count'].values[0]} valoraciones y un promedio de {pelicula['vote_average'].values[0]}"
+    }
+    if pelicula['vote_count'].values[0] < 2000:
         return {"mensaje": f"La película {titulo} no cumple con la condición de tener al menos 2000 valoraciones."}
     
     titulo_pelicula = pelicula['title'].values[0]
@@ -255,6 +266,8 @@ def get_actor(nombre_actor: str):
     if actor_peliculas.empty:
         raise HTTPException(status_code=404, detail="Actor no encontrado.")
     
+    # Obtener IDs de las películas
+    peliculas_ids = actor_peliculas['movie_id'].unique()
     # Obtener IDs de las películas
     peliculas_ids = actor_peliculas['movie_id'].unique()
     
@@ -288,6 +301,22 @@ def get_director(nombre_director: str):
     if director_peliculas.empty:
         raise HTTPException(status_code=404, detail="Director no encontrado.")
     
+    # Obtener IDs de las películas
+    peliculas_ids = director_peliculas['movie_id'].unique()
+    
+    # Filtrar películas del director en el dataset de películas
+    peliculas_director = movies_df[movies_df['movie_id'].isin(peliculas_ids)]
+    
+    if peliculas_director.empty:
+        raise HTTPException(status_code=404, detail="No se encontraron películas para este director.")
+    
+    # Calcular métricas
+    retorno_total = peliculas_director['return'].sum()
+    detalles_peliculas = peliculas_director[['title', 'release_date', 'return', 'budget', 'revenue']].to_dict('records')
+    
+    return {
+        "mensaje": f"El director {nombre_director} ha conseguido un retorno total de {retorno_total}",
+        "peliculas": peliculas_director[['title', 'release_date', 'return']].to_dict('records')
     # Obtener IDs de las películas
     peliculas_ids = director_peliculas['movie_id'].unique()
     
