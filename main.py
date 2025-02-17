@@ -10,7 +10,6 @@ from fuzzywuzzy import process
 
 app = FastAPI()
 
-<<<<<<< HEAD
 # 1️⃣ Cargar con Dask y fragmentos (blocksize pequeño)
 movies_ddf = dd.read_csv(
     'data/movies_dataset.csv',
@@ -86,14 +85,12 @@ movies_df['budget'] = movies_df['budget'].astype('float32')
     }
 )
 # Cargar solo las películas más populares (30,000 más populares)
-=======
 # Cargar solo las películas más populares (20,000 más populares)
->>>>>>> 38f1013 (Update main.py)
 movies_df = pd.read_csv('data/movies_dataset.csv')
 movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
 # Cargar solo las películas más populares (30,000 más populares)
 movies_df = pd.read_csv('data/movies_dataset.csv')
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(30000)
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
 
 # Cargar actores y directores más frecuentes
 cast_df = pd.read_csv('data/cast.csv')
@@ -148,7 +145,6 @@ features_normalized = scaler.fit_transform(features)
 cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 
 # Función de recomendación
-<<<<<<< HEAD
 def recomendacion(titulo: str):
     titulo_normalizado = normalizar_nombre(titulo)
     try:
@@ -163,9 +159,7 @@ def calcular_similitud():
 cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 # 1️⃣0️⃣ Función de recomendación
 def recomendacion(titulo: str):
-=======
 def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
->>>>>>> 38f1013 (Update main.py)
     titulo_normalizado = normalizar_nombre(titulo)
     idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
     sim_scores = list(enumerate(cosine_sim[idx]))
@@ -173,14 +167,10 @@ def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
     sim_scores = sim_scores[1:6]  # Obtener las 5 mejores recomendaciones
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
-<<<<<<< HEAD
-  
+ 
 # Endpoints
 # ✅ ENDPOINTS
-=======
-
 # Endpoints (sin cambios)
->>>>>>> 38f1013 (Update main.py)
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
@@ -274,7 +264,6 @@ def get_actor(nombre_actor: str):
     if peliculas_actor.empty:
         raise HTTPException(status_code=404, detail="No se encontraron películas para este actor.")
     
-<<<<<<< HEAD
     detalles_peliculas = peliculas_actor[['title', 'release_date']].to_dict('records')
     
     return {
@@ -282,7 +271,6 @@ def get_actor(nombre_actor: str):
         "peliculas": detalles_peliculas
     }
 
-=======
     # Calcular métricas
     cantidad_peliculas = peliculas_actor.shape[0]
     retorno_total = peliculas_actor['return'].sum()
@@ -291,7 +279,6 @@ def get_actor(nombre_actor: str):
     return {"mensaje": f"El actor {nombre_actor} ha participado de {cantidad_peliculas} filmaciones, el mismo ha conseguido un retorno de {retorno_total} con un promedio de {promedio_retorno} por filmación"}
 
 
->>>>>>> 38f1013 (Update main.py)
 # Endpoint 6: get_director
 @app.get('/get_director/{nombre_director}')
 def get_director(nombre_director: str):
@@ -318,10 +305,6 @@ def get_director(nombre_director: str):
         "mensaje": f"El director {nombre_director} ha conseguido un retorno total de {retorno_total}",
         "peliculas": detalles_peliculas
     }
-<<<<<<< HEAD
-
-=======
->>>>>>> 38f1013 (Update main.py)
 # Endpoint de recomendación
 @app.get('/recomendacion/{titulo}')
 def get_recomendacion(titulo: str):
