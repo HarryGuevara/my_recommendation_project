@@ -5,7 +5,8 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
-from memory_profiler import profile
+import unicodedata
+from fuzzywuzzy import process
 
 app = FastAPI()
 
@@ -90,6 +91,9 @@ movies_df['budget'] = movies_df['budget'].astype('float32')
 >>>>>>> 38f1013 (Update main.py)
 movies_df = pd.read_csv('data/movies_dataset.csv')
 movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
+# Cargar solo las películas más populares (30,000 más populares)
+movies_df = pd.read_csv('data/movies_dataset.csv')
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(30000)
 
 # Cargar actores y directores más frecuentes
 cast_df = pd.read_csv('data/cast.csv')
@@ -122,8 +126,6 @@ crew_df['name_job_normalized'] = crew_df['name_job'].apply(normalizar_nombre)
 # Manejo de valores NaN
 movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
-
-# Rellenar valores NaN en release_year con la moda (año más común)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
 
 
