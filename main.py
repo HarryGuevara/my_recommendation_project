@@ -1,18 +1,43 @@
-
 from fastapi import FastAPI, HTTPException
+import gc
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 import unicodedata
 from fuzzywuzzy import process
 import dask.dataframe as dd
+from scipy.sparse import csr_matrix
 
 app = FastAPI()
 
-# Cargar solo las películas más populares (20,000 más populares)
-movies_df = dd.read_csv('data/movies_dataset.csv')
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000).compute()
+
+# 1️⃣ Cargar con Dask y fragmentos (blocksize pequeño)
+movies_ddf = dd.read_csv(
+    'data/movies_dataset.csv',
+    blocksize="16MB",
+    dtype={
+        'popularity': 'float32',
+        'vote_average': 'float32',
+        'release_year': 'int32',
+        'revenue': 'float32',
+        'budget': 'float32'
+    }
+)
+
+# 2️⃣ Filtrar las 20,000 películas más populares
+movies_ddf = movies_ddf.sort_values(by='popularity', ascending=False).head(20000)
+
+# 3️⃣ Convertir a Pandas solo si es necesario
+if not isinstance(movies_ddf, pd.DataFrame):
+    movies_df = movies_ddf.compute()
+else:
+    movies_df = movies_ddf  # Si ya es pandas, usa directamente
+
+# 4️⃣ Verificación del tipo
+print(f"Tipo de movies_df: {type(movies_df)}")  # Debe ser <class 'pandas.DataFrame'>
+
 
 # Cargar actores y directores más frecuentes
 cast_df = dd.read_csv('data/cast.csv').compute()
@@ -47,8 +72,14 @@ movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
 
-# Calcular 'return' y manejar divisiones por cero
-movies_df['return'] = movies_df.apply(lambda row: row['revenue'] / row['budget'] if row['budget'] != 0 else 0, axis=1)
+
+
+# ✅ Más rápido y eficiente en memoria
+movies_df['return'] = np.where(
+    movies_df['budget'] != 0,
+    movies_df['revenue'] / movies_df['budget'],
+    0
+)
 
 # Seleccionar características relevantes
 features = movies_df[['vote_average', 'popularity', 'release_year', 'return']]
@@ -57,20 +88,24 @@ features = movies_df[['vote_average', 'popularity', 'release_year', 'return']]
 scaler = MinMaxScaler()
 features_normalized = scaler.fit_transform(features)
 
-# Calcular la matriz de similitud del coseno
-cosine_sim = cosine_similarity(features_normalized, features_normalized)
+# Calcular la matriz de similitud del coseno usando matrices dispersas
+cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 
 # Función de recomendación
-def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
+def recomendacion(titulo: str):
     titulo_normalizado = normalizar_nombre(titulo)
-    idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
+    try:
+        idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
+    except IndexError:
+        raise HTTPException(status_code=404, detail="Película no encontrada.")
+    
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-    sim_scores = sim_scores[1:6]
+    sim_scores = sim_scores[1:6]  # Obtener las 5 mejores recomendaciones
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
-
-# Endpoints (sin cambios)
+    
+# Endpoints
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
@@ -87,7 +122,7 @@ def cantidad_filmaciones_mes(mes: str):
     mes = mes.lower()
     
     if mes not in meses:
-       Exception(status_code=400, detail="Mes no válido.")
+        raise HTTPException(status_code=400, detail="Mes no válido.")
     
     peliculas_mes = movies_df[movies_df['release_date'].notna()]
     peliculas_mes['release_month'] = pd.to_datetime(peliculas_mes['release_date']).dt.month
@@ -136,7 +171,7 @@ def votos_titulo(titulo: str):
     if pelicula.empty:
         raise HTTPException(status_code=404, detail="Película no encontrada.")
     
-    if pelicula['vote_count'].values[0] < 2000:
+    if 'vote_count' not in pelicula.columns or pelicula['vote_count'].values[0] < 2000:
         return {"mensaje": f"La película {titulo} no cumple con la condición de tener al menos 2000 valoraciones."}
     
     titulo_pelicula = pelicula['title'].values[0]
@@ -158,6 +193,18 @@ def get_actor(nombre_actor: str):
     # Obtener IDs de las películas
     peliculas_ids = actor_peliculas['movie_id'].unique()
     
+    # Filtrar películas del actor en el dataset de películas
+    peliculas_actor = movies_df[movies_df['movie_id'].isin(peliculas_ids)]
+    
+    if peliculas_actor.empty:
+        raise HTTPException(status_code=404, detail="No se encontraron películas para este actor.")
+    
+    detalles_peliculas = peliculas_actor[['title', 'release_date']].to_dict('records')
+    
+    return {
+        "mensaje": f"El actor {nombre_actor} ha participado en las siguientes películas:",
+        "peliculas": detalles_peliculas
+    }
 
 # Endpoint 6: get_director
 @app.get('/get_director/{nombre_director}')
@@ -185,6 +232,7 @@ def get_director(nombre_director: str):
         "mensaje": f"El director {nombre_director} ha conseguido un retorno total de {retorno_total}",
         "peliculas": detalles_peliculas
     }
+
 # Endpoint de recomendación
 @app.get('/recomendacion/{titulo}')
 def get_recomendacion(titulo: str):
@@ -193,3 +241,13 @@ def get_recomendacion(titulo: str):
         return {"recomendaciones": recomendaciones}
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Error: {str(e)}")
+
+
+import os
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Iniciando en puerto: {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
