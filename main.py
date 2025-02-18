@@ -10,13 +10,17 @@ from scipy.sparse import csr_matrix
 
 app = FastAPI()
 
-#cargar datos
+# Cargar datos con Dask (para grandes volúmenes)
 movies_ddf = dd.read_csv('data/movies_dataset.csv')
 movies_ddf = movies_ddf.sort_values(by='popularity', ascending=False).head(20000)
 
-# Convierte solo al final a pandas
-movies_df = movies_ddf.compute()
+# ✅ Convertir solo una vez y usar como Pandas DataFrame
+if not isinstance(movies_ddf, pd.DataFrame):
+    movies_df = movies_ddf.compute()
+else:
+    movies_df = movies_ddf  # Si ya es pandas, usa directamente
 
+print(f"Tipo de movies_df: {type(movies_df)}")  # Debe ser <class 'pandas.DataFrame'>
 
 # Cargar actores y directores más frecuentes
 cast_df = dd.read_csv('data/cast.csv').compute()
