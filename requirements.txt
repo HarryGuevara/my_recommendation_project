@@ -9,3 +9,4 @@ dask
 numpy
 python-dateutil
 scipy
+pyarrow
