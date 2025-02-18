@@ -12,7 +12,11 @@ app = FastAPI()
 
 # Cargar solo las películas más populares (20,000 más populares)
 movies_df = dd.read_csv('data/movies_dataset.csv')
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000).compute()
+# No llamar a compute aquí, solo ordenar y limitar
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
+
+# Convertir a Pandas solo después de haber realizado todas las operaciones
+movies_df = movies_df.compute()
 
 # Cargar actores y directores más frecuentes
 cast_df = dd.read_csv('data/cast.csv').compute()
@@ -61,15 +65,19 @@ features_normalized = scaler.fit_transform(features)
 cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 
 # Función de recomendación
-def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
+def recomendacion(titulo: str):
     titulo_normalizado = normalizar_nombre(titulo)
-    idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
+    try:
+        idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
+    except IndexError:
+        raise HTTPException(status_code=404, detail="Película no encontrada.")
+    
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-    sim_scores = sim_scores[1:6]
+    sim_scores = sim_scores[1:6]  # Obtener las 5 mejores recomendaciones
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
-
+    
 # Endpoints
 @app.get('/')
 def read_root():
