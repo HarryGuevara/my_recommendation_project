@@ -71,8 +71,14 @@ movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
 
-# Calcular 'return' y manejar divisiones por cero
-movies_df['return'] = movies_df.apply(lambda row: row['revenue'] / row['budget'] if row['budget'] != 0 else 0, axis=1)
+
+
+# ✅ Más rápido y eficiente en memoria
+movies_df['return'] = np.where(
+    movies_df['budget'] != 0,
+    movies_df['revenue'] / movies_df['budget'],
+    0
+)
 
 # Seleccionar características relevantes
 features = movies_df[['vote_average', 'popularity', 'release_year', 'return']]
