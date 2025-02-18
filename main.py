@@ -10,13 +10,13 @@ from scipy.sparse import csr_matrix
 
 app = FastAPI()
 
-# Cargar solo las películas más populares (20,000 más populares)
-movies_df = dd.read_csv('data/movies_dataset.csv')
-# No llamar a compute aquí, solo ordenar y limitar
-movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
+#cargar datos
+movies_ddf = dd.read_csv('data/movies_dataset.csv')
+movies_ddf = movies_ddf.sort_values(by='popularity', ascending=False).head(20000)
 
-# Convertir a Pandas solo después de haber realizado todas las operaciones
-movies_df = movies_df.compute()
+# Convierte solo al final a pandas
+movies_df = movies_ddf.compute()
+
 
 # Cargar actores y directores más frecuentes
 cast_df = dd.read_csv('data/cast.csv').compute()
@@ -214,4 +214,12 @@ def get_recomendacion(titulo: str):
         return {"recomendaciones": recomendaciones}
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Error: {str(e)}")
+
+
+import os
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
+
 
