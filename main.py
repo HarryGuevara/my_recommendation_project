@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -7,6 +6,7 @@ from datetime import datetime
 import unicodedata
 from fuzzywuzzy import process
 import dask.dataframe as dd
+from scipy.sparse import csr_matrix
 
 app = FastAPI()
 
@@ -57,8 +57,8 @@ features = movies_df[['vote_average', 'popularity', 'release_year', 'return']]
 scaler = MinMaxScaler()
 features_normalized = scaler.fit_transform(features)
 
-# Calcular la matriz de similitud del coseno
-cosine_sim = cosine_similarity(features_normalized, features_normalized)
+# Calcular la matriz de similitud del coseno usando matrices dispersas
+cosine_sim = cosine_similarity(csr_matrix(features_normalized), csr_matrix(features_normalized))
 
 # Función de recomendación
 def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
@@ -70,7 +70,7 @@ def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
 
-# Endpoints (sin cambios)
+# Endpoints
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
@@ -87,7 +87,7 @@ def cantidad_filmaciones_mes(mes: str):
     mes = mes.lower()
     
     if mes not in meses:
-       Exception(status_code=400, detail="Mes no válido.")
+        raise HTTPException(status_code=400, detail="Mes no válido.")
     
     peliculas_mes = movies_df[movies_df['release_date'].notna()]
     peliculas_mes['release_month'] = pd.to_datetime(peliculas_mes['release_date']).dt.month
@@ -136,7 +136,7 @@ def votos_titulo(titulo: str):
     if pelicula.empty:
         raise HTTPException(status_code=404, detail="Película no encontrada.")
     
-    if pelicula['vote_count'].values[0] < 2000:
+    if 'vote_count' not in pelicula.columns or pelicula['vote_count'].values[0] < 2000:
         return {"mensaje": f"La película {titulo} no cumple con la condición de tener al menos 2000 valoraciones."}
     
     titulo_pelicula = pelicula['title'].values[0]
@@ -158,6 +158,18 @@ def get_actor(nombre_actor: str):
     # Obtener IDs de las películas
     peliculas_ids = actor_peliculas['movie_id'].unique()
     
+    # Filtrar películas del actor en el dataset de películas
+    peliculas_actor = movies_df[movies_df['movie_id'].isin(peliculas_ids)]
+    
+    if peliculas_actor.empty:
+        raise HTTPException(status_code=404, detail="No se encontraron películas para este actor.")
+    
+    detalles_peliculas = peliculas_actor[['title', 'release_date']].to_dict('records')
+    
+    return {
+        "mensaje": f"El actor {nombre_actor} ha participado en las siguientes películas:",
+        "peliculas": detalles_peliculas
+    }
 
 # Endpoint 6: get_director
 @app.get('/get_director/{nombre_director}')
@@ -185,6 +197,7 @@ def get_director(nombre_director: str):
         "mensaje": f"El director {nombre_director} ha conseguido un retorno total de {retorno_total}",
         "peliculas": detalles_peliculas
     }
+
 # Endpoint de recomendación
 @app.get('/recomendacion/{titulo}')
 def get_recomendacion(titulo: str):
@@ -193,3 +206,4 @@ def get_recomendacion(titulo: str):
         return {"recomendaciones": recomendaciones}
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Error: {str(e)}")
+
