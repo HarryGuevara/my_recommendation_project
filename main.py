@@ -7,6 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 import unicodedata
 from fuzzywuzzy import process
+import dask.dataframe as dd
 
 app = FastAPI()
 
@@ -91,10 +92,13 @@ movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
 # Cargar solo las películas más populares (30,000 más populares)
 movies_df = pd.read_csv('data/movies_dataset.csv')
 movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000)
+movies_df = dd.read_csv('data/movies_dataset.csv')
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000).compute()
+
 
 # Cargar actores y directores más frecuentes
-cast_df = pd.read_csv('data/cast.csv')
-crew_df = pd.read_csv('data/crew.csv')
+cast_df = dd.read_csv('data/cast.csv').compute()
+crew_df = dd.read_csv('data/crew.csv').compute()
 
 # Filtrar actores que aparecen en al menos 5 películas
 actor_counts = cast_df['name_actor'].value_counts()
@@ -187,7 +191,7 @@ def cantidad_filmaciones_mes(mes: str):
     mes = mes.lower()
     
     if mes not in meses:
-        raise HTTPException(status_code=400, detail="Mes no válido.")
+       Exception(status_code=400, detail="Mes no válido.")
     
     peliculas_mes = movies_df[movies_df['release_date'].notna()]
     peliculas_mes['release_month'] = pd.to_datetime(peliculas_mes['release_date']).dt.month
@@ -290,7 +294,6 @@ def get_actor(nombre_actor: str):
     promedio_retorno = retorno_total / cantidad_peliculas if cantidad_peliculas > 0 else 0
     
     return {"mensaje": f"El actor {nombre_actor} ha participado de {cantidad_peliculas} filmaciones, el mismo ha conseguido un retorno de {retorno_total} con un promedio de {promedio_retorno} por filmación"}
-
 
 # Endpoint 6: get_director
 @app.get('/get_director/{nombre_director}')
