@@ -1,0 +1,2 @@
+archive/cast_cleaned.csv filter=lfs diff=lfs merge=lfs -text
+archive/analysis/EDAs/EDA_GENERAL.ipynb filter=lfs diff=lfs merge=lfs -text
