@@ -1,22 +1,50 @@
+
 from fastapi import FastAPI, HTTPException
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
+import unicodedata
+from fuzzywuzzy import process
+import dask.dataframe as dd
 
 app = FastAPI()
 
-# Cargar los datasets
-movies_df = pd.read_csv('data/movies_dataset.csv')
-cast_df = pd.read_csv('data/cast.csv')
-crew_df = pd.read_csv('data/crew.csv')
+# Cargar solo las películas más populares (20,000 más populares)
+movies_df = dd.read_csv('data/movies_dataset.csv')
+movies_df = movies_df.sort_values(by='popularity', ascending=False).head(20000).compute()
+
+# Cargar actores y directores más frecuentes
+cast_df = dd.read_csv('data/cast.csv').compute()
+crew_df = dd.read_csv('data/crew.csv').compute()
+
+# Filtrar actores que aparecen en al menos 5 películas
+actor_counts = cast_df['name_actor'].value_counts()
+actores_frecuentes = actor_counts[actor_counts >= 5].index
+cast_df = cast_df[cast_df['name_actor'].isin(actores_frecuentes)]
+
+# Filtrar directores que dirigen al menos 3 películas
+director_counts = crew_df[crew_df['job_crew'] == 'Director']['name_job'].value_counts()
+directores_frecuentes = director_counts[director_counts >= 3].index
+crew_df = crew_df[(crew_df['name_job'].isin(directores_frecuentes)) & (crew_df['job_crew'] == 'Director')]
+
+# Cargar solo las columnas necesarias
+movies_df = movies_df[['title', 'vote_average', 'popularity', 'release_year', 'revenue', 'budget', 'release_date']]
+cast_df = cast_df[['movie_id', 'name_actor']]
+crew_df = crew_df[['movie_id', 'name_job', 'job_crew']]
+
+# Normalizar nombres
+def normalizar_nombre(nombre):
+    nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('ascii')
+    return nombre.lower()
+
+movies_df['title_normalized'] = movies_df['title'].apply(normalizar_nombre)
+cast_df['name_actor_normalized'] = cast_df['name_actor'].apply(normalizar_nombre)
+crew_df['name_job_normalized'] = crew_df['name_job'].apply(normalizar_nombre)
 
 # Manejo de valores NaN
-# Rellenar valores NaN en vote_average y popularity con la media
 movies_df['vote_average'].fillna(movies_df['vote_average'].mean(), inplace=True)
 movies_df['popularity'].fillna(movies_df['popularity'].mean(), inplace=True)
-
-# Rellenar valores NaN en release_year con la moda (año más común)
 movies_df['release_year'].fillna(movies_df['release_year'].mode()[0], inplace=True)
 
 # Calcular 'return' y manejar divisiones por cero
@@ -34,14 +62,15 @@ cosine_sim = cosine_similarity(features_normalized, features_normalized)
 
 # Función de recomendación
 def recomendacion(titulo: str, cosine_sim=cosine_sim, movies_df=movies_df):
-    idx = movies_df[movies_df['title'].str.lower() == titulo.lower()].index[0]
+    titulo_normalizado = normalizar_nombre(titulo)
+    idx = movies_df[movies_df['title_normalized'] == titulo_normalizado].index[0]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
     sim_scores = sim_scores[1:6]
     movie_indices = [i[0] for i in sim_scores]
     return movies_df['title'].iloc[movie_indices].tolist()
 
-# Endpoint de bienvenida
+# Endpoints (sin cambios)
 @app.get('/')
 def read_root():
     return {"message": "Bienvenido a la API de recomendación de películas"}
@@ -58,7 +87,7 @@ def cantidad_filmaciones_mes(mes: str):
     mes = mes.lower()
     
     if mes not in meses:
-        raise HTTPException(status_code=400, detail="Mes no válido.")
+       Exception(status_code=400, detail="Mes no válido.")
     
     peliculas_mes = movies_df[movies_df['release_date'].notna()]
     peliculas_mes['release_month'] = pd.to_datetime(peliculas_mes['release_date']).dt.month
@@ -129,19 +158,6 @@ def get_actor(nombre_actor: str):
     # Obtener IDs de las películas
     peliculas_ids = actor_peliculas['movie_id'].unique()
     
-    # Filtrar películas del actor en el dataset de películas
-    peliculas_actor = movies_df[movies_df['movie_id'].isin(peliculas_ids)]
-    
-    if peliculas_actor.empty:
-        raise HTTPException(status_code=404, detail="No se encontraron películas para este actor.")
-    
-    # Calcular métricas
-    cantidad_peliculas = peliculas_actor.shape[0]
-    retorno_total = peliculas_actor['return'].sum()
-    promedio_retorno = retorno_total / cantidad_peliculas if cantidad_peliculas > 0 else 0
-    
-    return {"mensaje": f"El actor {nombre_actor} ha participado de {cantidad_peliculas} filmaciones, el mismo ha conseguido un retorno de {retorno_total} con un promedio de {promedio_retorno} por filmación"}
-
 
 # Endpoint 6: get_director
 @app.get('/get_director/{nombre_director}')
