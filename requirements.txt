@@ -10,3 +10,4 @@ numpy
 python-dateutil
 scipy
 pyarrow
+fallocate -l 512M /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
