@@ -2,7 +2,7 @@ fastapi
 pandas
 scikit-learn
 fuzzywuzzy
-python-Levenshtein
+python-Levenshtein==0.12.2
 uvicorn
 memory_profiler
 dask
@@ -10,17 +10,3 @@ numpy
 python-dateutil
 scipy
 pyarrow
-requests
-scikit-learn
-fastapi==0.115.8
-pandas==2.2.3
-scikit-learn==1.6.1
-fuzzywuzzy==0.18.0
-python-Levenshtein==0.25.1
-uvicorn==0.34.0
-profiler==0.61.0
-memory_profiler==0.61.0
-dask==2023.1.0
-numpy==1.24.2
-python-dateutil==2.8.2
-scipy==1.10.0
