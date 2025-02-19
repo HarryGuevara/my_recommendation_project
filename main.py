@@ -9,11 +9,10 @@ import dask.dataframe as dd
 
 app = FastAPI()
 
-# ✅ Carga bajo demanda para reducir consumo de memoria
+# ✅ Cargar datasets bajo demanda
 def load_movies():
     return pd.read_csv(
-        "data/top_20000_movies.csv",
-        usecols=['movie_id', 'title', 'popularity', 'vote_average', 'release_year', 'revenue', 'budget'],
+        "data/movies_dataset.csv",
         dtype={
             'popularity': 'float32',
             'vote_average': 'float32',
@@ -30,7 +29,7 @@ def load_cast():
 def load_crew():
     return pd.read_csv("data/crew.csv", usecols=['movie_id', 'name_job', 'job_crew'])
 
-# 🔹 Normalizar nombres para evitar problemas en búsquedas
+# 🔹 Normalizar nombres para evitar errores en búsquedas
 def normalizar_nombre(nombre):
     nombre = unicodedata.normalize('NFKD', nombre).encode('ascii', 'ignore').decode('ascii')
     return nombre.lower()
