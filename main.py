@@ -137,8 +137,12 @@ def get_recomendacion(titulo: str):
         raise HTTPException(status_code=404, detail=f"Error: {str(e)}")
 
 # ✅ 9. Servidor FastAPI con Uvicorn
+
+import os
+import uvicorn
+
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.environ.get("PORT", 10000))
-    print(f"Iniciando en puerto: {port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"Iniciando servidor en puerto: {port}")
+
+    uvicorn.run("main:app", host="0.0.0.0", port=port, workers=1)
